@@ -17,7 +17,7 @@ export const updateUserSchema = createUserSchema.partial();
 export const createTeamSchema = z.object({
   name: z.string().min(1, "Team name is required").max(100, "Team name too long"),
   plan: z.string().default("free"),
-  settings: z.record(z.unknown()).default({}),
+  settings: z.record(z.string(), z.unknown()).default({}),
 });
 
 export const updateTeamSchema = createTeamSchema.partial();
@@ -52,7 +52,7 @@ export const postContentSchema = z.object({
   media: z.array(mediaAssetSchema).default([]),
   hashtags: z.array(z.string()).default([]),
   mentions: z.array(z.string()).default([]),
-  platformSpecific: z.record(z.nativeEnum(SocialPlatform), z.unknown()).default({}),
+  platformSpecific: z.record(z.string(), z.unknown()).default({}),
 });
 
 // Post validation schemas
@@ -140,7 +140,7 @@ export function validateContentForPlatforms(
     if (!result.success) {
       validationResults.push({
         platform,
-        errors: result.error.errors.map(err => err.message),
+        errors: result.error.issues.map(err => err.message),
       });
     }
   }

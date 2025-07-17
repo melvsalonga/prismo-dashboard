@@ -14,10 +14,10 @@ export async function checkDatabaseConnection(): Promise<boolean> {
 
 // Transaction wrapper
 export async function withTransaction<T>(
-  operation: (tx: typeof db) => Promise<T>
+  operation: (tx: Omit<typeof db, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">) => Promise<T>
 ): Promise<T> {
   return withErrorHandling(async () => {
-    return await db.$transaction(operation) as T;
+    return await db.$transaction(operation);
   });
 }
 
