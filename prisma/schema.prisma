@@ -1,0 +1,226 @@
+// Prismo Social Media Dashboard - Database Schema
+// This schema defines all the data models for the social media management platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum SocialPlatform {
+  TWITTER
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  TIKTOK
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  FAILED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NOT_REQUIRED
+}
+
+enum EngagementType {
+  LIKE
+  COMMENT
+  SHARE
+  MENTION
+  DIRECT_MESSAGE
+}
+
+enum EngagementStatus {
+  UNREAD
+  READ
+  RESPONDED
+  ARCHIVED
+}
+
+// Core Models
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  avatar    String?
+  timezone  String   @default("UTC")
+  role      UserRole @default(VIEWER)
+  teamId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  team           Team?           @relation(fields: [teamId], references: [id])
+  socialAccounts SocialAccount[]
+  posts          Post[]
+  approvedPosts  Post[]          @relation("PostApprover")
+  engagements    Engagement[]
+
+  @@map("users")
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  plan      String   @default("free")
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  members User[]
+  posts   Post[]
+
+  @@map("teams")
+}
+
+model SocialAccount {
+  id               String        @id @default(cuid())
+  userId           String
+  platform         SocialPlatform
+  platformUserId   String
+  username         String
+  displayName      String
+  avatar           String
+  accessToken      String // This should be encrypted in production
+  refreshToken     String? // This should be encrypted in production
+  tokenExpiresAt   DateTime?
+  isActive         Boolean       @default(true)
+  lastSyncAt       DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts        PostPlatform[]
+  analytics    PostAnalytics[]
+  engagements  Engagement[]
+
+  @@unique([userId, platform])
+  @@map("social_accounts")
+}
+
+model Post {
+  id             String         @id @default(cuid())
+  userId         String
+  teamId         String?
+  content        Json // PostContent structure
+  status         PostStatus     @default(DRAFT)
+  scheduledAt    DateTime?
+  publishedAt    DateTime?
+  approvalStatus ApprovalStatus @default(NOT_REQUIRED)
+  approvedBy     String?
+  approvedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  // Relations
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team         Team?           @relation(fields: [teamId], references: [id])
+  approver     User?           @relation("PostApprover", fields: [approvedBy], references: [id])
+  platforms    PostPlatform[]
+  analytics    PostAnalytics[]
+  engagements  Engagement[]
+  mediaAssets  MediaAsset[]
+
+  @@map("posts")
+}
+
+model PostPlatform {
+  id             String        @id @default(cuid())
+  postId         String
+  socialAccountId String
+  platformPostId String?       // ID from the social platform after posting
+  status         PostStatus    @default(DRAFT)
+  errorMessage   String?
+  publishedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  post          Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, socialAccountId])
+  @@map("post_platforms")
+}
+
+model MediaAsset {
+  id        String   @id @default(cuid())
+  postId    String
+  url       String
+  type      String   // "image", "video", "gif"
+  filename  String
+  size      Int
+  width     Int?
+  height    Int?
+  createdAt DateTime @default(now())
+
+  // Relations
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@map("media_assets")
+}
+
+model PostAnalytics {
+  id               String        @id @default(cuid())
+  postId           String
+  socialAccountId  String
+  platformPostId   String
+  likes            Int           @default(0)
+  shares           Int           @default(0)
+  comments         Int           @default(0)
+  reach            Int           @default(0)
+  impressions      Int           @default(0)
+  engagementRate   Float         @default(0)
+  lastUpdated      DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+
+  // Relations
+  post          Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, socialAccountId])
+  @@map("post_analytics")
+}
+
+model Engagement {
+  id               String           @id @default(cuid())
+  postId           String
+  socialAccountId  String
+  userId           String
+  type             EngagementType
+  author           String
+  content          String
+  sentiment        Float            @default(0) // -1 to 1 scale
+  status           EngagementStatus @default(UNREAD)
+  platformEngagementId String       // ID from the social platform
+  respondedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  // Relations
+  post          Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([platformEngagementId, socialAccountId])
+  @@map("engagements")
+}
