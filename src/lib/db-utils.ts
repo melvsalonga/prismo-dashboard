@@ -141,7 +141,14 @@ export interface QueryOptions extends PaginationOptions {
 
 // Generic repository base class
 export abstract class BaseRepository<T> {
-  protected abstract model: any;
+  protected abstract model: {
+    findUnique: (args: unknown) => Promise<T | null>;
+    findMany: (args: unknown) => Promise<T[]>;
+    count: (args: unknown) => Promise<number>;
+    create: (args: unknown) => Promise<T>;
+    update: (args: unknown) => Promise<T>;
+    delete: (args: unknown) => Promise<T>;
+  };
 
   async findById(id: string, include?: Record<string, unknown>): Promise<T | null> {
     return withErrorHandling(async () => {

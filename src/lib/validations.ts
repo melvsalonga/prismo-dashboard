@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SocialPlatform, UserRole, PostStatus, ApprovalStatus, EngagementType, EngagementStatus } from "@/types";
+import { SocialPlatform, UserRole, ApprovalStatus, EngagementType, EngagementStatus } from "@/types";
 
 // User validation schemas
 export const createUserSchema = z.object({
